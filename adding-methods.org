@@ -1,0 +1,559 @@
+#+TITLE: Metaprogramming in JS and Ruby and Python: Adding Methods to Existing Classes
+#+PROPERTY: header-args:C             :exports both :eval yes :flags -std=c99 -pedantic -Wall -Wextra -ftrapv -ggdb3 :eval yes :results value verbatim
+#+PROPERTY: header-args:sh            :exports both :eval yes :results value verbatim
+#+PROPERTY: header-args:rb            :exports both :eval yes :results value verbatim
+#+PROPERTY: header-args:ruby          :exports both :eval yes :results value verbatim
+#+PROPERTY: header-args:perl          :exports both :eval yes :results value verbatim
+#+PROPERTY: header-args:js            :exports both :eval yes :results value verbatim
+#+PROPERTY: header-args:py            :exports both :eval yes :results value verbatim
+#+PROPERTY: header-args:python        :exports both :eval yes :results output verbatim
+#+PROPERTY: header-args:shell         :exports both :eval yes :results value verbatim
+
+Follow along with the source code at:
+
+https://github.com/abramhindle/proxy-method_missing
+
+* Metaprogramming in JS and Ruby and Python: Adding Methods to Existing Classes
+
+- Dynamically Typed languages are often very dynamic
+- The very structure of classes and objects can change at runtime.
+- Sometimes we inherit some code that is missing 1 little thing
+  - such as a method
+- Let's just add that method because we need it!
+- This presentation is more of an exploration, I will not identify as
+  an expert in any of these 3 languages, I just use them from time to time.
+
+* Why do I want to add methods?
+
+- Because sometimes libraries don't return objects that follow an expected interface.
+
+#+BEGIN_SRC js
+let divs = document.getElementsByTagName("div");
+// this doesn't work, getElementsByTagName returns HTMLCollection, not Array!
+let divTexts = divs.map( div => div.innerText );
+#+END_SRC
+
+* Adding Methods in Python
+
+- Get a reference to the class you want to modify
+- Assign a function to an attribute of that class
+- Call said in the function in the instances
+
+#+BEGIN_SRC python :exports output
+class BasicClass:
+    """This is an empty class"""
+
+b = BasicClass() # this is an instance
+try:
+    b.m()
+    print("Why am I here?")
+except:
+    print("That method doesn't exist")
+#+END_SRC
+
+#+RESULTS:
+: What
+: That method doesn't exist
+
+#+BEGIN_SRC python :exports output
+class BasicClass:
+    """This is an empty class"""
+
+b = BasicClass() # this is an instance
+# add a method m
+BasicClass.m = lambda self: "My Self:" + str(self)
+print(b.m())
+#+END_SRC
+
+#+RESULTS:
+: My Self:<__main__.BasicClass object at 0x7ff2c6b21570>
+
+*** Same thing but with setattr
+
+#+BEGIN_SRC python :exports output
+class BasicClass:
+    """This is an empty class"""
+
+b = BasicClass() # this is an instance
+# add a method m
+setattr(BasicClass,"m", lambda self: "My Self:" + str(self))
+print(b.m())
+#+END_SRC
+
+#+RESULTS:
+: My Self:<__main__.BasicClass object at 0x7fb20b81d570>
+
+*** Step by step
+
+1. Get the class name
+
+#+BEGIN_SRC python :exports output
+import requests
+r = requests.get('https://softwareprocess.es')
+print( r.__class__ )
+#+END_SRC
+
+#+RESULTS:
+: <class 'requests.models.Response'>
+
+2. Create a method
+3. Assign a method
+
+#+BEGIN_SRC python :exports output
+import requests
+def code_text( self ):
+    return (self.status_code, self.text[0:40])
+requests.models.Response.code_text = code_text
+r = requests.get('https://softwareprocess.es')
+print( r.code_text() )
+#+END_SRC
+
+#+RESULTS:
+: (200, '<!DOCTYPE html>\n<html lang="en-us">\n  <h')
+
+*** Python Danger!
+
+Method in python are bound to their instance object. So if you assign them, they refer to their original instances:
+
+
+#+BEGIN_SRC python :exports output
+import requests
+def code_url( self ):
+    return (self.status_code, self.url)
+requests.models.Response.code_url = code_url
+r = requests.get('https://softwareprocess.es')
+print( ("OG",r.code_url()) )
+r2 = requests.get('http://coolbears.ca')
+# Steal that method from r
+requests.models.Response.code_url = r.code_url
+# The method still refers to r not r2
+print( ("MA", r2.code_url()) )
+# See this is what it would produce if self was correct
+print( ("EX", (r2.status_code, r2.url)) )
+#+END_SRC
+
+#+RESULTS:
+: ('OG', (200, 'https://softwareprocess.es/homepage/index.html'))
+: ('MA', (200, 'https://softwareprocess.es/homepage/index.html'))
+: ('EX', (200, 'http://coolbears.ca/'))
+
+*** A Solution to bound methods
+#+BEGIN_SRC python :exports output
+import requests
+def code_url( self ):
+    return (self.status_code, self.url)
+requests.models.Response.code_url = code_url
+r = requests.get('https://softwareprocess.es')
+print( ("OG",r.code_url()) )
+r2 = requests.get('http://coolbears.ca')
+# Steal that method from r, but drop the binding access __func__
+requests.models.Response.code_url = r.code_url.__func__
+# The method still refers to r not r2
+print( ("MA", r2.code_url()) )
+# See this is what it would produce if self was correct
+print( ("EX", (r2.status_code, r2.url)) )
+#+END_SRC
+
+#+RESULTS:
+: ('OG', (200, 'https://softwareprocess.es/homepage/index.html'))
+: ('MA', (200, 'http://coolbears.ca/'))
+: ('EX', (200, 'http://coolbears.ca/'))
+
+*** Class methods
+
+You can take assign a class method by wrapping a method with classmethod.
+This is like using the @classmethod decorator.
+
+#+BEGIN_SRC python :exports output
+import requests
+requests.models.Response
+requests.models.Response.isCool = classmethod(lambda self: True)
+print(requests.models.Response.isCool())
+#+END_SRC
+
+#+RESULTS:
+: True
+
+* Adding Methods in Javascript
+
+Once your class has a constructor, you can add methods to the prototype property of the class itself.
+
+This will be bound by the dot operator when the method is called.
+
+Watch out for arrow operators.
+
+#+BEGIN_SRC js
+Number()
+Number.prototype.isEven = function() { return this % 2 == 0; }
+return [ Number(10).isEven(), Number(11).isEven()]
+#+END_SRC
+
+#+RESULTS:
+: [ true, false ]
+
+I know you're absolutely amazed, I'm sure, but via the power of duck typing let's add map to Strings.
+
+#+BEGIN_SRC js
+String.prototype.map = Array.prototype.map;
+return "abcde".map( x => x.toUpperCase() )
+#+END_SRC
+
+#+RESULTS:
+: [ 'A', 'B', 'C', 'D', 'E' ]
+
+** Dangers with Arrows
+
+Avoid making methods with arrow operator functions, they capture the current `this`.
+
+#+BEGIN_SRC js
+
+Number.prototype.isEven = () => this % 2 == 0;
+return [ Number(10).isEven(), Number(11).isEven()]
+#+END_SRC
+
+#+RESULTS:
+: [ false, false ]
+
+** More Dangers with Arrows
+
+Arrows are great, but they capture `this` so if you use arrows to
+define methods in your classes, if you assign methods that are arrows,
+this will not be set correctly.
+
+#+BEGIN_SRC js
+function Arrows() {
+     this.method = () => this;
+}
+function NotArrows() {}
+let a = new Arrows();
+// set a uniq value for this element
+a.id = "a";
+console.log("a.method " + a.method());
+let n = new NotArrows();
+n.id = "n";
+NotArrows.prototype.method = a.method;
+// demonstrate that a and n have different ids
+console.log("a " + a.id);
+console.log("n " + n.id);
+// demonstrate that this in method was not overriden.
+console.log("n.method() " + n.method());
+console.log("n.method().id " + n.method().id);
+return n.method() === a.method() && n.id !== a.id
+#+END_SRC
+
+#+RESULTS:
+: a.method [object Object]
+: a a
+: n n
+: n.method() [object Object]
+: n.method().id a
+: true
+
+** Ecmascript Class Methods
+
+The same way as function constructed classes.
+
+#+BEGIN_SRC js
+class Demo {
+}
+console.log("method" in new Demo());
+Demo.prototype.method = function() { return this }
+console.log("method" in new Demo());
+console.log(new Demo().method());
+#+END_SRC
+
+#+RESULTS:
+: false
+: true
+: Demo {}
+: undefined
+
+** Object.create() methods
+
+Old style Object.create classes? You don't have .prototype from your
+function based constructors or ecmascript class constructors.
+
+#+BEGIN_SRC js
+let obj = {
+   id:     "obj",
+   method: function() { return this.id } 
+};
+console.log(obj.method());
+let child = Object.create(obj);
+child.id = "child";
+console.log(obj.method()," ",child.method());
+child.__proto__.method = function() { return "__proto__ override ID:" + this.id } 
+console.log(obj.method(), " ", child.method());
+obj.method = function() { return "Direct on the prototypical object ID:" + this.id } 
+console.log(obj.method(), " ", child.method());
+#+END_SRC
+
+#+RESULTS:
+: obj
+: obj   child
+: __proto__ override ID:obj   __proto__ override ID:child
+: Direct on the prototypical object ID:obj   Direct on the prototypical object ID:child
+: undefined
+
+
+* Adding Methods in Ruby
+
+Out of the 3, Ruby is the most complicated because for Ruby, OO,
+classes, instances, and methods are not some after thought tacked on
+to an imperative programming language. For Ruby OO and
+meta-programming is life.
+
+Thus you can always open a class for modifications.
+
+Ruby is pretty strict about methods, their types, and who can call
+them. But you are free to modify a class at runtime in multiple ways.
+
+- Opening the class and just defining new methods
+- class_eval a new block of code
+- call define_method on the class itself
+
+So let's define a simple class with 2 methods.
+
+#+BEGIN_SRC ruby :exports both :session X
+class Cat
+  def speak
+     "meow"
+  end
+  def one
+     1
+  end
+end
+cat = Cat.new()
+ocs = cat.speak()
+#+END_SRC
+
+#+RESULTS:
+: meow
+
+** Let's add a method
+
+Everytime we use "class" we open up that Class for modifications.
+
+We can add new methods that way.
+
+#+BEGIN_SRC ruby :exports both :session X
+class Cat
+  def two
+     2
+  end
+end
+cat.two
+#+END_SRC
+
+#+RESULTS:
+: 2
+
+
+
+** Let's replace a method
+
+Now let's change the speak method for all instances of Cat.
+
+#+BEGIN_SRC ruby :exports both :session X
+class Cat
+  def speak
+     "Miao"
+  end
+end
+ncs = cat.speak()
+ncat = Cat.new()
+[ocs, ncs, ncat.speak(), cat.one(), ncat.one()]
+#+END_SRC
+
+#+RESULTS:
+: ["meow", "Miao", "Miao", 1, 1]
+
+*** class_eval
+
+Class eval is very flexible, it can take strings as well. You can use
+it instead of the class re-opening syntax. It has the context of the
+class you called it on.
+
+#+BEGIN_SRC ruby :exports both :session X
+Cat.class_eval {
+  def speak
+     "nyau"
+  end
+}
+ncs = cat.speak()
+ncat = Cat.new()
+[ocs, ncs, ncat.speak(), cat.one(), ncat.one()]
+#+END_SRC
+
+#+RESULTS:
+: ["meow", "nyau", "nyau", 1, 1]
+
+
+** Assigning Methods
+
+Method transplanting is not allowed :(
+
+https://bugs.ruby-lang.org/issues/4254
+
+
+#+BEGIN_SRC ruby :exports both :session X
+speak_method = Cat.instance_method :speak
+class Dog
+end
+Dog.module_exec { define_method :speak, speak_method }
+#+END_SRC
+
+#+RESULTS:
+: #<TypeError: bind argument must be a subclass of Cat>
+
+*** We can assign from a function pretty easily
+
+define_method can be used to add a new method based on a symbol and a
+reference to a unbound method or function.
+
+#+BEGIN_SRC ruby :exports both :session X
+class Dog
+end
+speak_function = -> { "Speaking!" }
+Dog.module_exec { define_method :speak, speak_function }
+d = Dog.new()
+d.speak()
+#+END_SRC
+
+#+RESULTS:
+: Speaking!
+
+*** Functions can even reference self.
+
+#+BEGIN_SRC ruby :exports both :session X
+class Dog
+end
+speak_function = -> { "Speaking!" + self.to_s }
+Dog.module_exec { define_method :speak, speak_function }
+d = Dog.new()
+d.speak()
+#+END_SRC
+
+#+RESULTS:
+: Speaking!#<Dog:0x000055e332bcfb68>
+
+
+*** Maybe the right way in Ruby is not to assign methods
+
+but to just delegate which is pretty easy.
+
+#+BEGIN_SRC ruby :exports both :session X
+class Dog
+  def initialize()
+    @delegate = Cat.new()
+  end
+  def speak
+    @delegate.speak
+  end
+end
+d = Dog.new()
+d.speak()
+#+END_SRC
+
+#+RESULTS:
+: Miao
+
+
+*** Or the hacky method_missing delegate way
+
+#+BEGIN_SRC ruby :exports both :session X
+Object.send(:remove_const,:Dog) # Make sure there's no Dog class
+class Dog
+  def initialize()
+    @delegate = Cat.new()
+  end
+  def method_missing(m, *args, &block)
+    @delegate.send(m, *args, &block)
+  end
+end
+d = Dog.new()
+d.speak()
+#+END_SRC
+
+#+RESULTS:
+: Miao
+
+Or just use DelegateClass out of the box and avoid the incantation
+
+#+BEGIN_SRC ruby :exports both :session X
+Object.send(:remove_const,:Dog) # Make sure there's no Dog class
+class Dog < DelegateClass(Cat)
+end
+d = Dog.new()
+d.speak()
+#+END_SRC
+
+#+RESULTS:
+: Speaking!#<Dog:0x000055e332bcfb68>
+
+Delegation doesn't solve the problem that you want to expose instance
+properties to your methods.
+
+
+* End Bits
+** Conclusions
+
+Dynamic Languages are dynamic and you can do fun things with at them
+runtime. Defining and assigning new methods are just some of the time
+saving joys you can experience in dynamic languages.
+
+** Copyright Statement
+
+Writing and Code is (c) 2023 Abram Hindle. 
+
+Unless stated otherwise, assume MIT license, Python Documentation
+License, or Ruby license depending on the example.
+
+https://github.com/abramhindle/
+
+** Init ORG-MODE
+
+I use this section to ensure I can run the examples. You might not
+need this, but I eval the following elisp before I start the
+presentation
+
+#+BEGIN_SRC elisp
+;; I need this for org-mode to work well
+;; If we have a new org-mode use ob-shell
+;; otherwise use ob-sh --- but not both!
+;;(require 'ob-ruby)
+;;(require 'inf-ruby)
+;;(require 'enh-ruby-mode)
+
+(setq locale-coding-system 'utf-8)
+(set-selection-coding-system 'utf-8)
+(prefer-coding-system 'utf-8)
+(set-default-coding-systems 'utf-8)
+(set-terminal-coding-system 'utf-8)
+(set-keyboard-coding-system 'utf-8)
+
+(if (require 'ob-shell nil 'noerror)
+  (progn
+    (org-babel-do-load-languages 'org-babel-load-languages '((shell . t))))
+  (progn
+    (require 'ob-sh)
+    (org-babel-do-load-languages 'org-babel-load-languages '((sh . t)))))
+(org-babel-do-load-languages 'org-babel-load-languages '((C . t)))
+(org-babel-do-load-languages 'org-babel-load-languages '((ruby . t)))
+(org-babel-do-load-languages 'org-babel-load-languages '((js . t)))
+(org-babel-do-load-languages 'org-babel-load-languages '((perl . t)))
+(org-babel-do-load-languages 'org-babel-load-languages '((python . t)))
+(setq org-babel-js-function-wrapper
+      "process.stdout.write(require('util').inspect(function(){\n%s\n}(), { maxArrayLength: null, maxStringLength: null, breakLength: Infinity, compact: true }))")
+(setq org-src-fontify-natively t)
+(setq org-confirm-babel-evaluate nil) ;; danger!
+(custom-set-faces
+ '(org-block ((t (:inherit shadow :foreground "black"))))
+ '(org-code ((t (:inherit shadow :foreground "black")))))
+;(setq inf-ruby-default-implementation "ruby")
+(setq inf-python-default-implementation "python3")
+(setq org-babel-python-command "python3")
+(set-language-environment "UTF-8")
+#+END_SRC
+
+#+RESULTS:
