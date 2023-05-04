@@ -11,7 +11,7 @@
 
 Follow along with the source code at:
 
-https://github.com/abramhindle/proxy-method_missing
+https://github.com/abramhindle/adding-methods
 
 * Metaprogramming in JS and Ruby and Python: Adding Methods to Existing Classes
 
@@ -33,147 +33,6 @@ let divs = document.getElementsByTagName("div");
 let divTexts = divs.map( div => div.innerText );
 #+END_SRC
 
-* Adding Methods in Python
-
-- Get a reference to the class you want to modify
-- Assign a function to an attribute of that class
-- Call said in the function in the instances
-
-#+BEGIN_SRC python :exports output
-class BasicClass:
-    """This is an empty class"""
-
-b = BasicClass() # this is an instance
-try:
-    b.m()
-    print("Why am I here?")
-except:
-    print("That method doesn't exist")
-#+END_SRC
-
-#+RESULTS:
-: What
-: That method doesn't exist
-
-#+BEGIN_SRC python :exports output
-class BasicClass:
-    """This is an empty class"""
-
-b = BasicClass() # this is an instance
-# add a method m
-BasicClass.m = lambda self: "My Self:" + str(self)
-print(b.m())
-#+END_SRC
-
-#+RESULTS:
-: My Self:<__main__.BasicClass object at 0x7ff2c6b21570>
-
-*** Same thing but with setattr
-
-#+BEGIN_SRC python :exports output
-class BasicClass:
-    """This is an empty class"""
-
-b = BasicClass() # this is an instance
-# add a method m
-setattr(BasicClass,"m", lambda self: "My Self:" + str(self))
-print(b.m())
-#+END_SRC
-
-#+RESULTS:
-: My Self:<__main__.BasicClass object at 0x7fb20b81d570>
-
-*** Step by step
-
-1. Get the class name
-
-#+BEGIN_SRC python :exports output
-import requests
-r = requests.get('https://softwareprocess.es')
-print( r.__class__ )
-#+END_SRC
-
-#+RESULTS:
-: <class 'requests.models.Response'>
-
-2. Create a method
-3. Assign a method
-
-#+BEGIN_SRC python :exports output
-import requests
-def code_text( self ):
-    return (self.status_code, self.text[0:40])
-requests.models.Response.code_text = code_text
-r = requests.get('https://softwareprocess.es')
-print( r.code_text() )
-#+END_SRC
-
-#+RESULTS:
-: (200, '<!DOCTYPE html>\n<html lang="en-us">\n  <h')
-
-*** Python Danger!
-
-Method in python are bound to their instance object. So if you assign them, they refer to their original instances:
-
-
-#+BEGIN_SRC python :exports output
-import requests
-def code_url( self ):
-    return (self.status_code, self.url)
-requests.models.Response.code_url = code_url
-r = requests.get('https://softwareprocess.es')
-print( ("OG",r.code_url()) )
-r2 = requests.get('http://coolbears.ca')
-# Steal that method from r
-requests.models.Response.code_url = r.code_url
-# The method still refers to r not r2
-print( ("MA", r2.code_url()) )
-# See this is what it would produce if self was correct
-print( ("EX", (r2.status_code, r2.url)) )
-#+END_SRC
-
-#+RESULTS:
-: ('OG', (200, 'https://softwareprocess.es/homepage/index.html'))
-: ('MA', (200, 'https://softwareprocess.es/homepage/index.html'))
-: ('EX', (200, 'http://coolbears.ca/'))
-
-*** A Solution to bound methods
-#+BEGIN_SRC python :exports output
-import requests
-def code_url( self ):
-    return (self.status_code, self.url)
-requests.models.Response.code_url = code_url
-r = requests.get('https://softwareprocess.es')
-print( ("OG",r.code_url()) )
-r2 = requests.get('http://coolbears.ca')
-# Steal that method from r, but drop the binding access __func__
-requests.models.Response.code_url = r.code_url.__func__
-# The method still refers to r not r2
-print( ("MA", r2.code_url()) )
-# See this is what it would produce if self was correct
-print( ("EX", (r2.status_code, r2.url)) )
-#+END_SRC
-
-#+RESULTS:
-: ('OG', (200, 'https://softwareprocess.es/homepage/index.html'))
-: ('MA', (200, 'http://coolbears.ca/'))
-: ('EX', (200, 'http://coolbears.ca/'))
-
-*** Class methods
-
-You can take assign a class method by wrapping a method with classmethod.
-This is like using the @classmethod decorator.
-
-#+BEGIN_SRC python :exports output
-import requests
-requests.models.Response
-requests.models.Response.isCool = classmethod(lambda self: True)
-print(requests.models.Response.isCool())
-#+END_SRC
-
-#+RESULTS:
-: True
-
 * Adding Methods in Javascript
 
 Once your class has a constructor, you can add methods to the prototype property of the class itself.
@@ -188,8 +47,7 @@ Number.prototype.isEven = function() { return this % 2 == 0; }
 return [ Number(10).isEven(), Number(11).isEven()]
 #+END_SRC
 
-#+RESULTS:
-: [ true, false ]
+
 
 I know you're absolutely amazed, I'm sure, but via the power of duck typing let's add map to Strings.
 
@@ -198,21 +56,18 @@ String.prototype.map = Array.prototype.map;
 return "abcde".map( x => x.toUpperCase() )
 #+END_SRC
 
-#+RESULTS:
-: [ 'A', 'B', 'C', 'D', 'E' ]
+
 
 ** Dangers with Arrows
 
 Avoid making methods with arrow operator functions, they capture the current `this`.
 
 #+BEGIN_SRC js
-
 Number.prototype.isEven = () => this % 2 == 0;
 return [ Number(10).isEven(), Number(11).isEven()]
 #+END_SRC
 
-#+RESULTS:
-: [ false, false ]
+
 
 ** More Dangers with Arrows
 
@@ -241,13 +96,6 @@ console.log("n.method().id " + n.method().id);
 return n.method() === a.method() && n.id !== a.id
 #+END_SRC
 
-#+RESULTS:
-: a.method [object Object]
-: a a
-: n n
-: n.method() [object Object]
-: n.method().id a
-: true
 
 ** Ecmascript Class Methods
 
@@ -262,11 +110,6 @@ console.log("method" in new Demo());
 console.log(new Demo().method());
 #+END_SRC
 
-#+RESULTS:
-: false
-: true
-: Demo {}
-: undefined
 
 ** Object.create() methods
 
@@ -288,12 +131,125 @@ obj.method = function() { return "Direct on the prototypical object ID:" + this.
 console.log(obj.method(), " ", child.method());
 #+END_SRC
 
-#+RESULTS:
-: obj
-: obj   child
-: __proto__ override ID:obj   __proto__ override ID:child
-: Direct on the prototypical object ID:obj   Direct on the prototypical object ID:child
-: undefined
+
+
+* Adding Methods in Python
+
+- Get a reference to the class you want to modify
+- Assign a function to an attribute of that class
+- Call said in the function in the instances
+
+#+BEGIN_SRC python :exports output
+class BasicClass:
+    """This is an empty class"""
+
+b = BasicClass() # this is an instance
+try:
+    b.m()
+    print("Why am I here?")
+except:
+    print("That method doesn't exist")
+#+END_SRC
+
+
+#+BEGIN_SRC python :exports output
+class BasicClass:
+    """This is an empty class"""
+
+b = BasicClass() # this is an instance
+# add a method m
+BasicClass.m = lambda self: "My Self:" + str(self)
+print(b.m())
+#+END_SRC
+
+
+*** Same thing but with setattr
+
+#+BEGIN_SRC python :exports output
+class BasicClass:
+    """This is an empty class"""
+
+b = BasicClass() # this is an instance
+# add a method m
+setattr(BasicClass,"m", lambda self: "My Self:" + str(self))
+print(b.m())
+#+END_SRC
+
+
+*** Step by step
+
+1. Get the class name
+
+#+BEGIN_SRC python :exports output
+import requests
+r = requests.get('https://softwareprocess.es')
+print( r.__class__ )
+#+END_SRC
+
+2. Create a method
+
+3. Assign a method
+
+#+BEGIN_SRC python :exports output
+import requests
+def code_text( self ):
+    return (self.status_code, self.text[0:40])
+requests.models.Response.code_text = code_text
+r = requests.get('https://softwareprocess.es')
+print( r.code_text() )
+#+END_SRC
+
+*** Python Danger!
+
+Method in python are bound to their instance object. So if you assign them, they refer to their original instances:
+
+
+#+BEGIN_SRC python :exports output
+import requests
+def code_url( self ):
+    return (self.status_code, self.url)
+requests.models.Response.code_url = code_url
+r = requests.get('https://softwareprocess.es')
+print( ("OG",r.code_url()) )
+r2 = requests.get('http://coolbears.ca')
+# Steal that method from r
+requests.models.Response.code_url = r.code_url
+# The method still refers to r not r2
+print( ("MA", r2.code_url()) )
+# See this is what it would produce if self was correct
+print( ("EX", (r2.status_code, r2.url)) )
+#+END_SRC
+
+
+*** A Solution to bound methods
+
+#+BEGIN_SRC python :exports output
+import requests
+def code_url( self ):
+    return (self.status_code, self.url)
+requests.models.Response.code_url = code_url
+r = requests.get('https://softwareprocess.es')
+print( ("OG",r.code_url()) )
+r2 = requests.get('http://coolbears.ca')
+# Steal that method from r, but drop the binding access __func__
+requests.models.Response.code_url = r.code_url.__func__
+# The method still refers to r not r2
+print( ("MA", r2.code_url()) )
+# See this is what it would produce if self was correct
+print( ("EX", (r2.status_code, r2.url)) )
+#+END_SRC
+
+*** Class methods
+
+You can take assign a class method by wrapping a method with classmethod.
+This is like using the @classmethod decorator.
+
+#+BEGIN_SRC python :exports output
+import requests
+requests.models.Response
+requests.models.Response.isCool = classmethod(lambda self: True)
+print(requests.models.Response.isCool())
+#+END_SRC
 
 
 * Adding Methods in Ruby
@@ -327,8 +283,6 @@ cat = Cat.new()
 ocs = cat.speak()
 #+END_SRC
 
-#+RESULTS:
-: meow
 
 ** Let's add a method
 
@@ -345,8 +299,7 @@ end
 cat.two
 #+END_SRC
 
-#+RESULTS:
-: 2
+
 
 
 
@@ -365,8 +318,6 @@ ncat = Cat.new()
 [ocs, ncs, ncat.speak(), cat.one(), ncat.one()]
 #+END_SRC
 
-#+RESULTS:
-: ["meow", "Miao", "Miao", 1, 1]
 
 *** class_eval
 
@@ -385,8 +336,6 @@ ncat = Cat.new()
 [ocs, ncs, ncat.speak(), cat.one(), ncat.one()]
 #+END_SRC
 
-#+RESULTS:
-: ["meow", "nyau", "nyau", 1, 1]
 
 
 ** Assigning Methods
@@ -403,8 +352,7 @@ end
 Dog.module_exec { define_method :speak, speak_method }
 #+END_SRC
 
-#+RESULTS:
-: #<TypeError: bind argument must be a subclass of Cat>
+
 
 *** We can assign from a function pretty easily
 
@@ -420,8 +368,6 @@ d = Dog.new()
 d.speak()
 #+END_SRC
 
-#+RESULTS:
-: Speaking!
 
 *** Functions can even reference self.
 
@@ -434,8 +380,6 @@ d = Dog.new()
 d.speak()
 #+END_SRC
 
-#+RESULTS:
-: Speaking!#<Dog:0x000055e332bcfb68>
 
 
 *** Maybe the right way in Ruby is not to assign methods
@@ -443,6 +387,7 @@ d.speak()
 but to just delegate which is pretty easy.
 
 #+BEGIN_SRC ruby :exports both :session X
+Object.send(:remove_const,:Dog) # Make sure there's no Dog class
 class Dog
   def initialize()
     @delegate = Cat.new()
@@ -455,8 +400,7 @@ d = Dog.new()
 d.speak()
 #+END_SRC
 
-#+RESULTS:
-: Miao
+
 
 
 *** Or the hacky method_missing delegate way
@@ -475,9 +419,6 @@ d = Dog.new()
 d.speak()
 #+END_SRC
 
-#+RESULTS:
-: Miao
-
 Or just use DelegateClass out of the box and avoid the incantation
 
 #+BEGIN_SRC ruby :exports both :session X
@@ -488,8 +429,6 @@ d = Dog.new()
 d.speak()
 #+END_SRC
 
-#+RESULTS:
-: Speaking!#<Dog:0x000055e332bcfb68>
 
 Delegation doesn't solve the problem that you want to expose instance
 properties to your methods.
@@ -509,7 +448,7 @@ Writing and Code is (c) 2023 Abram Hindle.
 Unless stated otherwise, assume MIT license, Python Documentation
 License, or Ruby license depending on the example.
 
-https://github.com/abramhindle/
+https://github.com/abramhindle/adding-methods
 
 ** Init ORG-MODE
 
