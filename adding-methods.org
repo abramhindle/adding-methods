@@ -47,14 +47,28 @@ Number.prototype.isEven = function() { return this % 2 == 0; }
 return [ Number(10).isEven(), Number(11).isEven()]
 #+END_SRC
 
+#+RESULTS:
+: [ true, false ]
 
 
-I know you're absolutely amazed, I'm sure, but via the power of duck typing let's add map to Strings.
+
+I know you're absolutely amazed, I'm sure, but via the power of duck
+typing let's add map to Strings.
+
+#+BEGIN_SRC js
+return "abcde".map( x => x.toUpperCase() )
+#+END_SRC
+
+#+RESULTS:
+
 
 #+BEGIN_SRC js
 String.prototype.map = Array.prototype.map;
 return "abcde".map( x => x.toUpperCase() )
 #+END_SRC
+
+#+RESULTS:
+: [ 'A', 'B', 'C', 'D', 'E' ]
 
 
 
@@ -66,6 +80,9 @@ Avoid making methods with arrow operator functions, they capture the current `th
 Number.prototype.isEven = () => this % 2 == 0;
 return [ Number(10).isEven(), Number(11).isEven()]
 #+END_SRC
+
+#+RESULTS:
+: [ false, false ]
 
 
 
@@ -96,6 +113,14 @@ console.log("n.method().id " + n.method().id);
 return n.method() === a.method() && n.id !== a.id
 #+END_SRC
 
+#+RESULTS:
+: a.method [object Object]
+: a a
+: n n
+: n.method() [object Object]
+: n.method().id a
+: true
+
 
 ** Ecmascript Class Methods
 
@@ -109,6 +134,12 @@ Demo.prototype.method = function() { return this }
 console.log("method" in new Demo());
 console.log(new Demo().method());
 #+END_SRC
+
+#+RESULTS:
+: false
+: true
+: Demo {}
+: undefined
 
 
 ** Object.create() methods
@@ -131,6 +162,13 @@ obj.method = function() { return "Direct on the prototypical object ID:" + this.
 console.log(obj.method(), " ", child.method());
 #+END_SRC
 
+#+RESULTS:
+: obj
+: obj   child
+: __proto__ override ID:obj   __proto__ override ID:child
+: Direct on the prototypical object ID:obj   Direct on the prototypical object ID:child
+: undefined
+
 
 
 * Adding Methods in Python
@@ -151,6 +189,9 @@ except:
     print("That method doesn't exist")
 #+END_SRC
 
+#+RESULTS:
+: That method doesn't exist
+
 
 #+BEGIN_SRC python :exports output
 class BasicClass:
@@ -161,6 +202,9 @@ b = BasicClass() # this is an instance
 BasicClass.m = lambda self: "My Self:" + str(self)
 print(b.m())
 #+END_SRC
+
+#+RESULTS:
+: My Self:<__main__.BasicClass object at 0x7f89a33124c0>
 
 
 *** Same thing but with setattr
@@ -186,6 +230,9 @@ r = requests.get('https://softwareprocess.es')
 print( r.__class__ )
 #+END_SRC
 
+#+RESULTS:
+: <class 'requests.models.Response'>
+
 2. Create a method
 
 3. Assign a method
@@ -199,9 +246,13 @@ r = requests.get('https://softwareprocess.es')
 print( r.code_text() )
 #+END_SRC
 
+#+RESULTS:
+: (200, '<!DOCTYPE html>\n<html lang="en-us">\n  <h')
+
 *** Python Danger!
 
-Method in python are bound to their instance object. So if you assign them, they refer to their original instances:
+Method in python are bound to their instance object. So if you assign
+them, they refer to their original instances:
 
 
 #+BEGIN_SRC python :exports output
@@ -219,6 +270,11 @@ print( ("MA", r2.code_url()) )
 # See this is what it would produce if self was correct
 print( ("EX", (r2.status_code, r2.url)) )
 #+END_SRC
+
+#+RESULTS:
+: ('OG', (200, 'https://softwareprocess.es/homepage/index.html'))
+: ('MA', (200, 'https://softwareprocess.es/homepage/index.html'))
+: ('EX', (200, 'http://coolbears.ca/'))
 
 
 *** A Solution to bound methods
@@ -238,6 +294,11 @@ print( ("MA", r2.code_url()) )
 # See this is what it would produce if self was correct
 print( ("EX", (r2.status_code, r2.url)) )
 #+END_SRC
+
+#+RESULTS:
+: ('OG', (200, 'https://softwareprocess.es/homepage/index.html'))
+: ('MA', (200, 'http://coolbears.ca/'))
+: ('EX', (200, 'http://coolbears.ca/'))
 
 *** Class methods
 
@@ -283,6 +344,9 @@ cat = Cat.new()
 ocs = cat.speak()
 #+END_SRC
 
+#+RESULTS:
+: meow
+
 
 ** Let's add a method
 
@@ -298,6 +362,9 @@ class Cat
 end
 cat.two
 #+END_SRC
+
+#+RESULTS:
+: 2
 
 
 
@@ -318,6 +385,9 @@ ncat = Cat.new()
 [ocs, ncs, ncat.speak(), cat.one(), ncat.one()]
 #+END_SRC
 
+#+RESULTS:
+: ["meow", "Miao", "Miao", 1, 1]
+
 
 *** class_eval
 
@@ -335,6 +405,9 @@ ncs = cat.speak()
 ncat = Cat.new()
 [ocs, ncs, ncat.speak(), cat.one(), ncat.one()]
 #+END_SRC
+
+#+RESULTS:
+: ["meow", "nyau", "nyau", 1, 1]
 
 
 
@@ -368,6 +441,9 @@ d = Dog.new()
 d.speak()
 #+END_SRC
 
+#+RESULTS:
+: Speaking!
+
 
 *** Functions can even reference self.
 
@@ -379,6 +455,9 @@ Dog.module_exec { define_method :speak, speak_function }
 d = Dog.new()
 d.speak()
 #+END_SRC
+
+#+RESULTS:
+: Speaking!#<Dog:0x0000564b1b0378b8>
 
 
 
@@ -400,6 +479,9 @@ d = Dog.new()
 d.speak()
 #+END_SRC
 
+#+RESULTS:
+: nyau
+
 
 
 
@@ -419,6 +501,9 @@ d = Dog.new()
 d.speak()
 #+END_SRC
 
+#+RESULTS:
+: nyau
+
 Or just use DelegateClass out of the box and avoid the incantation
 
 #+BEGIN_SRC ruby :exports both :session X
@@ -428,6 +513,9 @@ end
 d = Dog.new()
 d.speak()
 #+END_SRC
+
+#+RESULTS:
+: nyau
 
 
 Delegation doesn't solve the problem that you want to expose instance
